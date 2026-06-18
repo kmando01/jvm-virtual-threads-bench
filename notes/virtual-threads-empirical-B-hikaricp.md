@@ -5,6 +5,29 @@
 
 ---
 
+## 실측 원본 출력
+
+```
+$ java -cp ".:h2.jar:hikari.jar:slf4j-api.jar:slf4j-nop.jar" PoolStarvation
+
+=== Experiment B: HikariCP Pool Starvation ===
+query_sleep=10ms  total_ops=2000
+
+pool_size    vthreads   p50(ms)    p95(ms)    p99(ms)    max(ms)
+-----------------------------------------------------------------
+5            10         12         83         344        1122
+5            50         12         872        2106       4844
+5            100        12         1663       3718       4857
+5            200        13         3238       4622       4796
+5            400        13         4256       4704       4829
+
+50           10         12         13         13         14
+50           50         11         69         180        344
+50           100        11         227        552        770
+50           200        11         750        784        795
+50           400        12         747        781        781
+```
+
 ## 실험 조건
 
 | 항목 | 값 |
@@ -70,10 +93,10 @@ p50은 전 구간에서 ~12ms로 안정적. **꼬리 지연(tail latency)만 폭
 ```
 실질 처리량 = pool_size × (1000ms / query_ms) = 5 × 100 = 500 ops/s
 큐 깊이 = vthreads - pool_size = 395
-평균 대기 = 395 / 500 × 1000 ≈ 790ms
+이론 평균 대기 = 395 / 500 × 1000 ≈ 790ms
 ```
 
-이 이론값과 측정 p50(12ms, 선행 처리된 것들의 평균)은 다르다. p50은 먼저 커넥션을 잡은 태스크들이고, p99는 큐 끝에 있던 태스크들이다.
+이 이론값(790ms)은 **평균 대기**이며 p50과 다르다. p50=13ms는 커넥션을 먼저 잡은 태스크들의 중앙값이고, 대기 중인 태스크들의 지연이 p95~p99에 집중된다. "평균은 정상이지만 tail이 폭발"하는 전형적 패턴.
 
 ### p50은 거짓말한다
 
@@ -92,6 +115,21 @@ poolSize=50 (10배 증가):
 **결론**: 가상 스레드는 메모리 병목을 없애지만, DB 커넥션 풀이 새로운 천장이 된다.
 
 ---
+
+## 재현 명령
+
+```bash
+cd ~/vt-experiment-B
+# JAR 다운로드 (최초 1회)
+curl -sSL -o h2.jar "https://repo1.maven.org/maven2/com/h2database/h2/2.2.224/h2-2.2.224.jar"
+curl -sSL -o hikari.jar "https://repo1.maven.org/maven2/com/zaxxer/HikariCP/5.1.0/HikariCP-5.1.0.jar"
+curl -sSL -o slf4j-api.jar "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar"
+curl -sSL -o slf4j-nop.jar "https://repo1.maven.org/maven2/org/slf4j/slf4j-nop/2.0.13/slf4j-nop-2.0.13.jar"
+
+CP=".:h2.jar:hikari.jar:slf4j-api.jar:slf4j-nop.jar"
+javac -cp "$CP" PoolStarvation.java
+java -cp "$CP" PoolStarvation 2>/dev/null
+```
 
 ## 다음 실험(C)에 대한 시사점
 

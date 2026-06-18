@@ -5,6 +5,34 @@
 
 ---
 
+## 실측 원본 출력
+
+```
+=== JDK 21 ===
+$ java -Djava.library.path=. JniSleepProbe
+JDK: 21.0.6
+cores=12  concurrency=50  ops=200  sleep=50ms
+
+이론 최소(no pin): 200ms | 이론 최악(pin): 850ms
+
+[Java sleep]            222 ms  throughput=900.9 ops/s
+[JNI  sleep]            911 ms  throughput=219.5 ops/s
+
+RatioJNI/Java = 4.10x  → JNI PINNING CONFIRMED (carrier 점유됨)
+
+=== JDK 25 (JEP 491 이후에도 JNI pinning 잔존) ===
+$ ~/vt-jdk25/.../java -Djava.library.path=. JniSleepProbe
+JDK: 25.0.3
+cores=12  concurrency=50  ops=200  sleep=50ms
+
+이론 최소(no pin): 200ms | 이론 최악(pin): 850ms
+
+[Java sleep]            226 ms  throughput=885.0 ops/s
+[JNI  sleep]            914 ms  throughput=218.8 ops/s
+
+RatioJNI/Java = 4.04x  → JNI PINNING CONFIRMED (carrier 점유됨)
+```
+
 ## 실험 조건
 
 | 항목 | 값 |
@@ -103,6 +131,25 @@ JEP 491이 수정하지 못한 것:
 | fix 방법 | monitor를 vthread에 연결 (JEP 491) | 불가 (OS 수준 제약) |
 | JDK 21 상태 | pinning | pinning |
 | JDK 25 상태 | **fix됨** | **여전히 pinning** |
+
+## 재현 명령
+
+```bash
+cd ~/vt-experiment-D
+JAVA_HOME=$(/usr/libexec/java_home -v 21)
+clang -shared -fPIC -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/darwin" \
+  -o libjni_sleep.dylib jni_sleep.c
+
+javac JniSleepProbe.java
+
+# JDK 21
+java -Djava.library.path=. JniSleepProbe
+
+# JDK 25
+JAVA25=~/vt-jdk25/amazon-corretto-25.jdk/Contents/Home/bin
+$JAVA25/javac JniSleepProbe.java -d out25/
+$JAVA25/java --enable-native-access=ALL-UNNAMED -Djava.library.path=. -cp out25 JniSleepProbe 2>/dev/null
+```
 
 ### JNI pinning이 실무에 미치는 영향
 

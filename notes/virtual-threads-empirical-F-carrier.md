@@ -5,6 +5,24 @@
 
 ---
 
+## 실측 원본 출력
+
+```
+$ for P in 12 25 50 100 200; do
+    java -Djdk.virtualThreadScheduler.parallelism=$P -Djava.library.path=. CarrierTuningProbe
+  done
+
+parallelism=12    JNI=1,927ms(  208 ops/s)  Java=   69ms( 5797 ops/s)  recovery=  3.6%  theory=1,700ms
+parallelism=25    JNI=  934ms(  428 ops/s)  Java=   69ms( 5797 ops/s)  recovery=  7.4%  theory=800ms
+parallelism=50    JNI=  474ms(  844 ops/s)  Java=   72ms( 5556 ops/s)  recovery= 15.2%  theory=400ms
+parallelism=100   JNI=  250ms( 1600 ops/s)  Java=   75ms( 5333 ops/s)  recovery= 30.0%  theory=200ms
+parallelism=200   JNI=  138ms( 2899 ops/s)  Java=   74ms( 5405 ops/s)  recovery= 53.6%  theory=100ms
+```
+
+> **진단 노트**: 초기 실험에서 JNI 함수명 불일치(Java_JniSleepProbe_nativeSleep vs
+> Java_CarrierTuningProbe_nativeSleep)로 60s 타임아웃 오류 발생.
+> C 코드에 클래스별 함수명을 명시적으로 추가한 후 정상 측정.
+
 ## 실험 조건
 
 | 항목 | 값 |
@@ -49,12 +67,29 @@ parallelism=12 → 200 (16.7배 증가):
 
 | parallelism | 회복률 실측 | 이론(P/400) |
 |-------------|------------|------------|
-| 12 | 3.6% | 3.0% |
-| 200 | 53.6% | 50.0% |
+| 12 | 3.6% | 3.0% | (실측 > 이론: 스케줄링 오버헤드로 실제 처리량이 이론보다 약간 낮아 recovery%가 높게 측정됨) |
+| 200 | 53.6% | 50.0% | |
 
 → 100% 회복 (JNI ≈ Java): parallelism ≈ 400 (동시 JNI 작업 수와 같아야 함)
 
 ---
+
+## 재현 명령
+
+```bash
+cd ~/vt-experiment-F
+# JNI 라이브러리 빌드 (클래스명 포함 함수명 필수)
+JAVA_HOME=$(/usr/libexec/java_home -v 21)
+clang -shared -fPIC -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/darwin" \
+  -o libjni_sleep.dylib jni_sleep_f.c
+
+javac CarrierTuningProbe.java
+
+for P in 12 25 50 100 200; do
+  java -Djdk.virtualThreadScheduler.parallelism=$P \
+       -Djava.library.path=. CarrierTuningProbe 2>/dev/null
+done
+```
 
 ## 실무 공식
 

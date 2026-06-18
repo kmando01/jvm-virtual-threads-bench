@@ -5,6 +5,36 @@
 
 ---
 
+## 실측 원본 출력
+
+```
+=== JDK 21 ===
+$ java PinningProbe
+JDK: 21.0.6
+cores=12  concurrency=50  ops=200  sleep=50ms
+
+이론 최소 시간 (no pinning): 200ms
+이론 최악 시간 (pinning):    850ms
+
+[synchronized]          913 ms  throughput=219.1 ops/s
+[ReentrantLock]         211 ms  throughput=947.9 ops/s
+
+RatioSync/Lock = 4.33x  → PINNING CONFIRMED (carrier 점유됨)
+
+=== JDK 25 ===
+$ ~/vt-jdk25/.../java PinningProbe
+JDK: 25.0.3
+cores=12  concurrency=50  ops=200  sleep=50ms
+
+이론 최소 시간 (no pinning): 200ms
+이론 최악 시간 (pinning):    850ms
+
+[synchronized]          221 ms  throughput=905.0 ops/s
+[ReentrantLock]         219 ms  throughput=913.2 ops/s
+
+RatioSync/Lock = 1.01x  → NO PINNING (JEP 491 효과)
+```
+
 ## 실험 조건
 
 | 항목 | 값 |
@@ -119,6 +149,21 @@ JDK 21에서 실측값(913ms)이 이론 최악(850ms)보다 약 7% 초과했다.
 JDK 25에서 221ms는 이론 최소 200ms 대비 10% 초과 — 이는 virtual thread 스케줄링 자체의 고정 오버헤드다.
 
 ---
+
+## 재현 명령
+
+```bash
+cd ~/vt-experiment-C
+javac PinningProbe.java
+
+# JDK 21
+java PinningProbe
+
+# JDK 25
+JAVA25=~/vt-jdk25/amazon-corretto-25.jdk/Contents/Home/bin
+$JAVA25/javac PinningProbe.java -d out25/
+$JAVA25/java -cp out25 PinningProbe
+```
 
 ## 다음 실험(D)에 대한 시사점
 

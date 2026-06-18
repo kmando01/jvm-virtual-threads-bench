@@ -6,6 +6,42 @@
 
 ---
 
+## 실측 원본 출력
+
+```
+$ JAVA25=~/vt-jdk25/amazon-corretto-25.jdk/Contents/Home/bin/java
+
+# Baseline
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe none 0 10000
+RESULT mode=none    payKB=0     N=10000   createMs=33    deltaKB=23221     perVtKB=2.32
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe none 0 100000
+RESULT mode=none    payKB=0     N=100000  createMs=164   deltaKB=104554    perVtKB=1.05
+
+# ThreadLocal
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe tl 10 10000
+RESULT mode=tl      payKB=10    N=10000   createMs=61    deltaKB=124320    perVtKB=12.43
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe tl 10 100000
+RESULT mode=tl      payKB=10    N=100000  createMs=322   deltaKB=1143651   perVtKB=11.44
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe tl 100 10000
+RESULT mode=tl      payKB=100   N=10000   createMs=159   deltaKB=1028222   perVtKB=102.82
+$ $JAVA25 -Xmx2g -XX:+ExitOnOutOfMemoryError ThreadLocalCostProbe tl 100 100000
+Terminating due to java.lang.OutOfMemoryError: Java heap space   ← H-2 확인
+
+# InheritableThreadLocal (parent 설정 → 자식 상속)
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe itl 10 10000
+RESULT mode=itl     payKB=10    N=10000   createMs=64    deltaKB=22938     perVtKB=2.29
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe itl 10 100000
+RESULT mode=itl     payKB=10    N=100000  createMs=134   deltaKB=115370    perVtKB=1.15
+
+# ScopedValue (공유 payload)
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe scoped 1 10000
+RESULT mode=scoped  payKB=1     N=10000   createMs=130   deltaKB=30492     perVtKB=3.05
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe scoped 100 10000
+RESULT mode=scoped  payKB=100   N=10000   createMs=61    deltaKB=28571     perVtKB=2.86
+$ $JAVA25 -Xmx2g ThreadLocalCostProbe scoped 100 100000
+RESULT mode=scoped  payKB=100   N=100000  createMs=167   deltaKB=112480    perVtKB=1.12
+```
+
 ## 1. 질문
 
 ThreadLocal 페이로드가 vthread 수만큼 Heap에 곱해지는가?  
